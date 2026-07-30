@@ -12,7 +12,7 @@
     margin: 0;
     padding: 0;
     font-family: sans-serif;
-    background-color: #f4f4f9;
+    background-color: #000000;
   }
 
   /* 釘選頭部控制區塊：保持固定 padding 與內襯 */
@@ -253,7 +253,7 @@ async function send(promptText, outputElement, signal, onComplete, setStatus) {
 
     try {
         const res = await fetch(
-            "https://nervegear-n8n.hf.space/api/generate",
+            "https://duguaynins-ollama.hf.space/api/generate",
             {
                 method: "POST",
                 headers: {
