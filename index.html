@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<!-- 關鍵：防止手機瀏覽器自動縮放，強制 1:1 像素呈現 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="© 2024 NINS (by JPGT). By using any of the services, it means you have agreed to any content and all content!">
+<title>nins/LLM</title>
+
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+    background-color: #f4f4f9;
+  }
+
+  /* 釘選頭部控制區塊：保持固定 padding 與內襯 */
+  .header-ctrl {
+    position: sticky;
+    top: 0;
+    background-color: #ffffff; 
+    padding: 15px 20px;       
+    z-index: 1000;            
+    border-bottom: 1px solid #e0e0e0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  #container {
+    padding: 20px;
+  }
+
+  .chat-card {
+    border: 1px solid #ccc;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    background-color: #ffffff;
+  }
+
+  /* 卡片頂部的資訊欄 (Index + ISO UTC 時間) */
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed #eee;
+  }
+  .card-index {
+    font-weight: bold;
+    color: #2196F3;
+  }
+  .card-time {
+    font-family: monospace; /* 使用等寬字體讓 ISO 時間格式好看 */
+  }
+
+  textarea {
+    width: 100%;
+    height: 60px;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+  }
+  .button-group {
+    margin-bottom: 8px;
+  }
+  button {
+    padding: 6px 12px;
+    margin-right: 5px;
+    cursor: pointer;
+  }
+  .btn-add {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+  }
+  .btn-send {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+  }
+  .btn-stop {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+  }
+  button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+  }
+  pre {
+    background-color: #eee;
+    padding: 10px;
+    white-space: pre-wrap;
+    min-height: 40px;
+    border-radius: 4px;
+    margin: 0;
+  }
+  .status {
+    font-size: 12px;
+    color: #666;
+    margin-left: 5px;
+  }
+</style>
+</head>
+<body>
+
+<!-- 頭部控制區塊 (Sticky 釘選) -->
+<div class="header-ctrl">
+  <button class="btn-add" onclick="addCard()">+ NEW</button>
+</div>
+
+<!-- 動態卡片容器 -->
+<div id="container"></div>
+
+<script>
+// 全域索引計數器
+let cardCounter = 0;
+
+window.onload = function() {
+    addCard("My language code is zh-TW. Please respond in zh-TW.");
+};
+
+function addCard(defaultText = "") {
+    const container = document.getElementById("container");
+
+    // 1. 遞增 Index
+    cardCounter++;
+
+    // 2. 依照指定格式取得 ISO UTC 時間
+    const utc = new Date().toISOString();
+    console.log(utc);
+
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    console.log(timezone);
+
+    const offset =
+        (() => {
+            const minutes = -new Date().getTimezoneOffset();
+
+            const sign = minutes >= 0 ? "+" : "-";
+
+            const hh = String(
+                Math.floor(Math.abs(minutes) / 60)
+            ).padStart(2, "0");
+
+            const mm = String(
+                Math.abs(minutes) % 60
+            ).padStart(2, "0");
+
+            return `${sign}${hh}:${mm}`;
+        })();
+    console.log(offset);
+
+    // 建立卡片容器
+    const card = document.createElement("div");
+    card.className = "chat-card";
+
+    // 建立卡片頁眉（顯示 Index 與 UTC ISO 時間）
+    const cardHeader = document.createElement("div");
+    cardHeader.className = "card-header";
+    cardHeader.innerHTML = `
+        <span class="card-index">#${cardCounter}</span>
+        <span class="card-time">${timezone}: ${utc} ${offset}</span>
+    `;
+
+    // 建立 Textarea
+    const textarea = document.createElement("textarea");
+    textarea.value = defaultText;
+    textarea.placeholder = "INPUT...";
+
+    // 建立按鈕組容器
+    const btnGroup = document.createElement("div");
+    btnGroup.className = "button-group";
+
+    const sendBtn = document.createElement("button");
+    sendBtn.textContent = "Send";
+    sendBtn.className = "btn-send";
+
+    const stopBtn = document.createElement("button");
+    stopBtn.textContent = "Stop";
+    stopBtn.className = "btn-stop";
+    stopBtn.disabled = true;
+
+    const statusSpan = document.createElement("span");
+    statusSpan.className = "status";
+
+    btnGroup.appendChild(sendBtn);
+    btnGroup.appendChild(stopBtn);
+    btnGroup.appendChild(statusSpan);
+
+    // 建立獨立接收框
+    const out = document.createElement("pre");
+
+    // 當前卡片專屬的 AbortController
+    let currentController = null;
+
+    // 綁定「Send」事件
+    sendBtn.onclick = function() {
+        if (currentController) {
+            currentController.abort();
+        }
+
+        currentController = new AbortController();
+
+        sendBtn.disabled = true;
+        stopBtn.disabled = false;
+        statusSpan.textContent = "生成中...";
+
+        send(
+            textarea.value, 
+            out, 
+            currentController.signal,
+            () => {
+                sendBtn.disabled = false;
+                stopBtn.disabled = true;
+                currentController = null;
+            },
+            (statusText) => {
+                statusSpan.textContent = statusText;
+            }
+        );
+    };
+
+    // 綁定「Stop」事件
+    stopBtn.onclick = function() {
+        if (currentController) {
+            currentController.abort();
+            statusSpan.textContent = "已手動停止";
+        }
+    };
+
+    // 組合卡片並塞入頁面
+    card.appendChild(cardHeader);
+    card.appendChild(textarea);
+    card.appendChild(btnGroup);
+    card.appendChild(out);
+
+    container.appendChild(card);
+}
+
+// 發送請求與串流處理函式
+async function send(promptText, outputElement, signal, onComplete, setStatus) {
+    outputElement.textContent = "";
+
+    try {
+        const res = await fetch(
+            "https://nervegear-n8n.hf.space/api/generate",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: "llama3.2:1b",
+                    prompt: promptText,
+                    stream: true
+                }),
+                signal: signal
+            }
+        );
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split("\n");
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+
+                const data = JSON.parse(line);
+
+                if (data.response) {
+                    outputElement.textContent += data.response;
+                }
+
+                if (data.done) {
+                    setStatus("完成");
+                }
+            }
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            outputElement.textContent += "\n\n[系統：已停止生成]";
+        } else {
+            outputElement.textContent = "發生錯誤：" + err.message;
+            setStatus("錯誤");
+        }
+    } finally {
+        onComplete();
+    }
+}
+</script>
+
+</body>
+</html>
