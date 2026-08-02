@@ -5,7 +5,7 @@
 <!-- 關鍵：防止手機瀏覽器自動縮放，強制 1:1 像素呈現 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="description" content="© 2024 NINS (by JPGT). By using any of the services, it means you have agreed to any content and all content!">
-<title>nins/LLM</title>
+<title>nins/Chat</title>
 
 <style>
   body {
@@ -115,8 +115,7 @@
 
 <!-- 頭部控制區塊 (Sticky 釘選) -->
 <div class="header-ctrl">
-  <!--button class="btn-add" onclick="addCard()">+ NEW</button!-->
-  <button class="btn-add" onclick="addCard('My language code is zh-TW. Please respond in zh-TW! ...')">+ NEW</button>
+  <button class="btn-add" onclick="addCard('')">+ NEW</button>
 </div>
 
 <!-- 動態卡片容器 -->
@@ -127,11 +126,13 @@
 let cardCounter = 0;
 
 window.onload = function() {
-    addCard("My language code is zh-TW. Please respond in zh-TW.");
+    addCard('');
 };
 
 function addCard(defaultText = "") {
+    const nins = `My language code is ${navigator.language}! Please respond in ${navigator.language}! ...`;
     const container = document.getElementById("container");
+    defaultText = nins;
 
     // 1. 遞增 Index
     cardCounter++;
