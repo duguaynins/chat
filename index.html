@@ -294,7 +294,7 @@ function downloadAllText() {
     });
 
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([resultText], { type: 'text/plain;charset=utf-8' }));
+    a.href = URL.createObjectURL(new Blob(["\uFEFF" + resultText], { type: 'text/plain;charset=utf-8' }));
     a.download = `nins-chat-${Date.now()}.txt`;
     a.click();
 }
