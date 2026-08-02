@@ -2,7 +2,6 @@
 <html lang="auto">
 <head>
 <meta charset="UTF-8">
-<!-- 關鍵：防止手機瀏覽器自動縮放，強制 1:1 像素呈現 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="description" content="© 2024 NINS (by JPGT). By using any of the services, it means you have agreed to any content and all content!">
 <title>nins/Chat</title>
@@ -15,7 +14,6 @@
     background-color: #000000;
   }
 
-  /* 釘選頭部控制區塊：保持固定 padding 與內襯 */
   .header-ctrl {
     position: sticky;
     top: 0;
@@ -28,10 +26,6 @@
     width: 100%;
   }
 
-  #container {
-    padding: 20px;
-  }
-
   .chat-card {
     border: 1px solid #ccc;
     padding: 15px;
@@ -40,7 +34,6 @@
     background-color: #ffffff;
   }
 
-  /* 卡片頂部的資訊欄 (Index + ISO UTC 時間) */
   .card-header {
     display: flex;
     justify-content: space-between;
@@ -56,7 +49,7 @@
     color: #2196F3;
   }
   .card-time {
-    font-family: monospace; /* 使用等寬字體讓 ISO 時間格式好看 */
+    font-family: monospace;
   }
 
   textarea {
@@ -67,10 +60,13 @@
   }
   .button-group {
     margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
   }
   button {
     padding: 6px 12px;
-    margin-right: 5px;
     cursor: pointer;
   }
   .btn-add {
@@ -114,13 +110,35 @@
   .status {
     font-size: 12px;
     color: #666;
-    margin-left: 5px;
+  }
+
+  /* 調整單一卡片內的模型選單樣式 */
+  .select-model {
+    height: 32px;
+    padding: 0 8px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #333;
+    background-color: #fffbcf;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .select-model:focus {
+    border-color: #2196F3;
+  }
+
+  /* 底部的 padding 降低（因已無固定底部選單） */
+  #container {
+    padding: 20px;
   }
 </style>
 </head>
 <body>
 
-<!-- 頭部控制區塊 (Sticky 釘選) -->
+<!-- 頭部控制區塊 -->
 <div class="header-ctrl">
   <button class="btn-add" onclick="addCard()">+ NEW</button>
   <button class="btn-load" onclick="downloadAllText()">* DOWNLOAD</button>
@@ -130,7 +148,6 @@
 <div id="container"></div>
 
 <script>
-// 全域索引計數器
 let cardCounter = 0;
 
 window.onload = function() {
@@ -142,39 +159,23 @@ function addCard(defaultText = "") {
     const container = document.getElementById("container");
     defaultText = nins;
 
-    // 1. 遞增 Index
     cardCounter++;
 
-    // 2. 依照指定格式取得 ISO UTC 時間
     const utc = new Date().toISOString();
-    console.log(utc);
-
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    console.log(timezone);
-
-    const offset =
-        (() => {
-            const minutes = -new Date().getTimezoneOffset();
-
-            const sign = minutes >= 0 ? "+" : "-";
-
-            const hh = String(
-                Math.floor(Math.abs(minutes) / 60)
-            ).padStart(2, "0");
-
-            const mm = String(
-                Math.abs(minutes) % 60
-            ).padStart(2, "0");
-
-            return `${sign}${hh}:${mm}`;
-        })();
-    console.log(offset);
+    const offset = (() => {
+        const minutes = -new Date().getTimezoneOffset();
+        const sign = minutes >= 0 ? "+" : "-";
+        const hh = String(Math.floor(Math.abs(minutes) / 60)).padStart(2, "0");
+        const mm = String(Math.abs(minutes) % 60).padStart(2, "0");
+        return `${sign}${hh}:${mm}`;
+    })();
 
     // 建立卡片容器
     const card = document.createElement("div");
     card.className = "chat-card";
 
-    // 建立卡片頁眉（顯示 Index 與 UTC ISO 時間）
+    // 建立頁眉
     const cardHeader = document.createElement("div");
     cardHeader.className = "card-header";
     cardHeader.innerHTML = `
@@ -187,7 +188,16 @@ function addCard(defaultText = "") {
     textarea.value = defaultText;
     textarea.placeholder = "INPUT...";
 
-    // 建立按鈕組容器
+    // 建立卡片專屬的模型下拉選單
+    const modelSelect = document.createElement("select");
+    modelSelect.className = "select-model";
+    modelSelect.innerHTML = `
+        <option value="gemma3:270m" selected>gemma3:270m</option>
+        <option value="llama3.2:1b">llama3.2:1b</option>
+        <option value="qwen2.5-coder:3b">qwen2.5-coder:3b</option>
+    `;
+
+    // 建立按鈕組
     const btnGroup = document.createElement("div");
     btnGroup.className = "button-group";
 
@@ -203,14 +213,15 @@ function addCard(defaultText = "") {
     const statusSpan = document.createElement("span");
     statusSpan.className = "status";
 
+    // 將按鈕與卡片專屬的 select 放進按鈕組
     btnGroup.appendChild(sendBtn);
     btnGroup.appendChild(stopBtn);
+    btnGroup.appendChild(modelSelect); // <--- 加入選單
     btnGroup.appendChild(statusSpan);
 
     // 建立獨立接收框
     const out = document.createElement("pre");
 
-    // 當前卡片專屬的 AbortController
     let currentController = null;
 
     // 綁定「Send」事件
@@ -223,15 +234,19 @@ function addCard(defaultText = "") {
 
         sendBtn.disabled = true;
         stopBtn.disabled = false;
+        modelSelect.disabled = true; // 生成中時鎖定選單
         statusSpan.textContent = "生成中...";
 
+        // 將選中的模型值 (modelSelect.value) 傳給 send 函式
         send(
             textarea.value, 
+            modelSelect.value, 
             out, 
             currentController.signal,
             () => {
                 sendBtn.disabled = false;
                 stopBtn.disabled = true;
+                modelSelect.disabled = false;
                 currentController = null;
             },
             (statusText) => {
@@ -248,59 +263,41 @@ function addCard(defaultText = "") {
         }
     };
 
-    // 組合卡片並塞入頁面
+    // 組合卡片並插入
     card.appendChild(cardHeader);
     card.appendChild(textarea);
     card.appendChild(btnGroup);
     card.appendChild(out);
 
-    ///container.appendChild(card);
     container.prepend(card);
 }
-/*
-function downloadAllText() {
-    // 取得整個頁面當前顯示的所有文字
-    const text = document.body.innerText;
 
-    // 建立下載連結並觸發
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-    a.download = 'page-text.txt';
-    a.click();
-}*/
 function downloadAllText() {
     let resultText = "";
     
-    // 抓取所有的卡片
     const cards = document.querySelectorAll('.chat-card');
     
-    cards.forEach((card, index) => {
-        // 抓取頁眉資訊 (#卡片編號、時間)
+    cards.forEach((card) => {
         const headerText = card.querySelector('.card-header')?.innerText || '';
-        
-        // 抓取 textarea 中的文字 (輸入內容)
+        const selectedModel = card.querySelector('.select-model')?.value || '';
         const inputText = card.querySelector('textarea')?.value || '';
-        
-        // 抓取 pre 中的文字 (輸出結果)
         const outputText = card.querySelector('pre')?.innerText || '';
 
-        // 組合卡片內容
         resultText += `\n`;
-        resultText += `${headerText}===\n`;
+        resultText += `${headerText} === [Model: ${selectedModel}]\n`;
         resultText += `[INPUT]: ${inputText}\n`;
         resultText += `[OUTPUT]: ${outputText}\n`;
         resultText += `----------------------------------------\n`;
     });
 
-    // 建立下載連結並觸發
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([resultText], { type: 'text/plain;charset=utf-8' }));
     a.download = `nins-chat-${Date.now()}.txt`;
     a.click();
 }
 
-// 發送請求與串流處理函式
-async function send(promptText, outputElement, signal, onComplete, setStatus) {
+// 修改 send 函式：新增 selectedModel 參數
+async function send(promptText, selectedModel, outputElement, signal, onComplete, setStatus) {
     outputElement.textContent = "";
 
     try {
@@ -312,7 +309,7 @@ async function send(promptText, outputElement, signal, onComplete, setStatus) {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    model: "llama3.2:1b",
+                    model: selectedModel, // 使用卡片傳入的模型名稱
                     prompt: promptText,
                     stream: true
                 }),
