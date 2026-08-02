@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="auto">
 <head>
 <meta charset="UTF-8">
 <!-- 關鍵：防止手機瀏覽器自動縮放，強制 1:1 像素呈現 -->
@@ -254,7 +254,8 @@ function addCard(defaultText = "") {
     card.appendChild(btnGroup);
     card.appendChild(out);
 
-    container.appendChild(card);
+    ///container.appendChild(card);
+    container.prepend(card);
 }
 /*
 function downloadAllText() {
