@@ -34,10 +34,12 @@
     background-color: #ffffff;
   }
 
+/* 卡片頂部的資訊欄 (Index 上，時間 下) */
   .card-header {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column; /* 設為垂直排列 */
+    align-items: flex-start; /* 靠左對齊，若想靠右可改為 flex-end */
+    gap: 4px;                /* 上下增加一點間距 */
     font-size: 13px;
     color: #666;
     margin-bottom: 8px;
@@ -177,10 +179,11 @@ function addCard(defaultText = "") {
 
     // 建立頁眉
     const cardHeader = document.createElement("div");
+    const formattedIndex = String(cardCounter).padStart(3, '0');
     cardHeader.className = "card-header";
     cardHeader.innerHTML = `
-        <span class="card-index">#${cardCounter}</span>
-        <span class="card-time">${timezone}: ${utc} ${offset}</span>
+        <span class="card-index">#${formattedIndex} ${timezone}</span>
+        <span class="card-time">${utc} ${offset}</span>
     `;
 
     // 建立 Textarea
